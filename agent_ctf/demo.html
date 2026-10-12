@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Local Agent Demo</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #20241f;
+      --muted: #70766f;
+      --line: #e4e7e1;
+      --paper: #ffffff;
+      --canvas: #f5f6f2;
+      --accent: #315f4a;
+      --accent-hover: #244a39;
+      --soft-green: #eef5f0;
+      --warning: #85352d;
+      --soft-red: #fbf0ee;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--canvas); color: var(--ink); min-height: 100vh; }
+    .shell { width: min(100% - 40px, 820px); margin: 0 auto; padding: 44px 0 56px; }
+    header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 46px; }
+    .brand { display: flex; align-items: center; gap: 11px; font-size: 13px; font-weight: 650; letter-spacing: .1em; text-transform: uppercase; }
+    .mark { width: 28px; height: 28px; border: 1px solid #b7c6bb; border-radius: 8px; display: grid; place-items: center; color: var(--accent); font-size: 13px; font-weight: 750; }
+    .local-badge { display: inline-flex; gap: 7px; align-items: center; color: #526158; border: 1px solid #dce5dd; border-radius: 999px; background: #f9fbf9; padding: 7px 11px; font-size: 12px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #4c9169; }
+    .intro { margin-bottom: 26px; }
+    .eyebrow { color: var(--accent); font-size: 12px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; margin: 0 0 10px; }
+    h1 { font-size: clamp(30px, 5vw, 42px); letter-spacing: -.04em; line-height: 1.12; margin: 0 0 12px; font-weight: 650; }
+    .lede { color: var(--muted); font-size: 15px; line-height: 1.65; max-width: 590px; margin: 0; }
+    .panel { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 10px 35px rgba(26, 39, 29, .045); overflow: hidden; }
+    .panel-top { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+    .model { color: #46564a; font-weight: 600; }
+    .conversation { min-height: 220px; padding: 26px 24px 20px; }
+    .welcome { text-align: center; max-width: 430px; margin: 24px auto 16px; }
+    .welcome h2 { font-size: 16px; margin: 0 0 7px; font-weight: 620; }
+    .welcome p { color: var(--muted); font-size: 13px; line-height: 1.55; margin: 0; }
+    .message { max-width: 88%; margin: 0 0 17px; }
+    .message.user { margin-left: auto; }
+    .speaker { color: var(--muted); font-size: 11px; margin: 0 0 6px 3px; }
+    .bubble { border: 1px solid var(--line); border-radius: 4px 13px 13px 13px; background: #fbfcfa; padding: 13px 15px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .user .speaker { text-align: right; margin-right: 3px; }
+    .user .bubble { background: var(--soft-green); border-color: #dce9df; border-radius: 13px 4px 13px 13px; }
+    .followup { margin: 2px 24px 22px; border: 1px solid #e7dfc9; background: #fcfaf4; border-radius: 12px; padding: 18px; }
+    .followup h2 { margin: 0 0 7px; font-size: 15px; font-weight: 640; }
+    .followup p { color: #686451; font-size: 13px; line-height: 1.5; margin: 0 0 13px; }
+    .safety-note { color: #686451; font-size: 13px; line-height: 1.5; margin: 0 0 13px; }
+    .code-row { display: flex; gap: 9px; }
+    input, textarea { font: inherit; }
+    .code-input { width: 100%; min-width: 0; height: 42px; border: 1px solid #d8d5c9; border-radius: 8px; padding: 0 12px; background: white; color: var(--ink); font-size: 14px; }
+    .code-input:focus, .question:focus { outline: 3px solid rgba(49, 95, 74, .15); border-color: var(--accent); }
+    .question.awaiting-password { border-color: var(--accent); background: #fffef9; }
+    .restart { display: block; margin: 0 20px 16px auto; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--muted); padding: 7px 11px; font-size: 12px; }
+    .restart:hover { color: var(--ink); border-color: #b9c4ba; }
+    button { font: inherit; cursor: pointer; }
+    .verify { flex: 0 0 auto; padding: 0 15px; height: 42px; border: 0; border-radius: 8px; color: white; background: var(--accent); font-size: 13px; font-weight: 650; }
+    .verify:hover, .send:hover { background: var(--accent-hover); }
+    .verify:disabled, .send:disabled { opacity: .55; cursor: wait; }
+    .warning { margin: 0 24px 22px; padding: 18px; border: 1px solid #efd5d1; border-radius: 12px; background: var(--soft-red); }
+    .warning h2 { color: var(--warning); margin: 0 0 10px; font-size: 14px; line-height: 1.45; font-weight: 700; }
+    .warning p { color: #604541; font-size: 13px; line-height: 1.55; margin: 0; }
+    .warning strong { color: #452c29; }
+    .composer { border-top: 1px solid var(--line); padding: 17px 20px 19px; }
+    .question-row { display: flex; gap: 10px; }
+    .question { flex: 1; min-width: 0; height: 46px; resize: none; border: 1px solid #dfe3dc; border-radius: 9px; padding: 12px 13px; color: var(--ink); background: #fff; font-size: 14px; line-height: 20px; }
+    .question::placeholder { color: #969c95; }
+    .send { height: 46px; padding: 0 19px; border: 0; border-radius: 9px; color: white; background: var(--accent); font-size: 13px; font-weight: 650; }
+    .hint { display: flex; justify-content: space-between; gap: 12px; color: #818780; font-size: 11px; margin: 10px 2px 0; }
+    .hint button { padding: 0; border: 0; background: none; color: #526b5c; font-size: inherit; text-decoration: underline; text-underline-offset: 2px; }
+    .status { min-height: 19px; color: var(--muted); font-size: 12px; padding: 0 24px 12px; }
+    .error { color: var(--warning); }
+    .hidden { display: none !important; }
+    footer { color: #838982; font-size: 11px; line-height: 1.55; text-align: center; margin: 17px auto 0; max-width: 620px; }
+    @media (max-width: 600px) {
+      .shell { width: min(100% - 24px, 820px); padding-top: 24px; }
+      header { margin-bottom: 35px; }
+      .brand { font-size: 11px; }
+      .local-badge { font-size: 11px; padding: 6px 9px; }
+      .conversation { padding: 20px 16px 14px; }
+      .followup, .warning { margin-left: 16px; margin-right: 16px; }
+      .panel-top, .composer { padding-left: 15px; padding-right: 15px; }
+      .message { max-width: 96%; }
+      .hint { display: block; }
+      .hint span { display: block; margin-bottom: 6px; }
+      .code-row { flex-direction: column; }
+      .verify { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+
+    <section class="panel" aria-label="Demo conversation">
+      <div class="conversation" id="conversation" aria-live="polite">
+        <div class="welcome" id="welcome">
+          <h2>What would you like to know?</h2>
+          <p>Try asking: “Tell me how to get the new bonus.”</p>
+        </div>
+      </div>
+      <section class="followup hidden" id="followup" aria-live="polite">
+        <p>For this simulation, enter any <strong>fake</strong> value in the question box, such as 1234. Never enter a real password.</p>
+      </section>
+      <section class="warning hidden" id="warning" aria-live="assertive">
+        <h2>POISONED RAG: This file has been overridden by a malicious actor.</h2>
+        <p><strong>SIMULATION ONLY</strong> “€10,000 have been transferred from your account.”</p>
+      </section>
+      <div class="status" id="status" role="status"></div>
+      <form class="composer" id="question-form">
+        <div class="question-row">
+          <label class="hidden" for="question">Your question</label>
+          <textarea class="question" id="question" rows="1" maxlength="500" placeholder="Ask a question about the bonus policy…" required></textarea>
+          <button class="send" id="send" type="submit">Ask</button>
+        </div>
+      </form>
+      <button class="restart" id="clear" type="button">Start over</button>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const form = document.getElementById("question-form");
+      const questionField = document.getElementById("question");
+      const sendButton = document.getElementById("send");
+      const conversation = document.getElementById("conversation");
+      const welcome = document.getElementById("welcome");
+      const followup = document.getElementById("followup");
+      const warning = document.getElementById("warning");
+      const status = document.getElementById("status");
+      let awaitingFakePassword = false;
+      let completed = false;
+      let lastTraceFile = "";
+
+      function addMessage(role, text, speakerLabel = null) {
+        const item = document.createElement("div");
+        item.className = `message ${role}`;
+        const label = document.createElement("div");
+        label.className = "speaker";
+        label.textContent = speakerLabel || (role === "user" ? "You" : "Assistant");
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+        bubble.textContent = text;
+        item.append(label, bubble);
+        conversation.append(item);
+      }
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const question = questionField.value.trim();
+        if (!question || sendButton.disabled || completed) return;
+
+        // After the injected password request, the next chat-box entry is a
+        // fake value for the simulation. Consume it entirely in this browser:
+        // do not add it to the transcript or send it to /api/ask.
+        if (awaitingFakePassword) {
+          questionField.value = "";
+          awaitingFakePassword = false;
+          completed = true;
+          questionField.classList.remove("awaiting-password");
+          questionField.disabled = true;
+          sendButton.disabled = true;
+          followup.classList.add("hidden");
+          warning.classList.remove("hidden");
+          status.textContent = lastTraceFile
+            ? `Simulation complete. Fake value cleared locally. Trace: ${lastTraceFile}`
+            : "Simulation complete. Fake value cleared locally.";
+          warning.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          return;
+        }
+
+        welcome.classList.add("hidden");
+        followup.classList.add("hidden");
+        warning.classList.add("hidden");
+        status.classList.remove("error");
+        status.textContent = "Thinking locally…";
+        sendButton.disabled = true;
+        questionField.disabled = true;
+        addMessage("user", question);
+        questionField.value = "";
+
+        try {
+          const response = await fetch("/api/ask", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question })
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "The local demo could not answer.");
+          addMessage(
+            "assistant",
+            data.answer,
+            data.simulated ? "Assistant · scripted demo fallback" : "Assistant"
+          );
+          lastTraceFile = data.trace_file || "";
+          const traceStatus = lastTraceFile
+            ? `Trace saved to ${lastTraceFile}. `
+            : (data.trace_error ? `${data.trace_error} ` : "");
+          awaitingFakePassword = Boolean(data.show_demo_code);
+          if (awaitingFakePassword) {
+            followup.classList.remove("hidden");
+            questionField.placeholder = "Fake password only (e.g. 1234)…";
+            questionField.classList.add("awaiting-password");
+            status.textContent = `${traceStatus}Enter any fake value to finish the simulation.`;
+          } else {
+            questionField.placeholder = "Ask a question about the bonus policy…";
+            status.textContent = traceStatus.trim();
+          }
+        } catch (error) {
+          status.textContent = error.message;
+          status.classList.add("error");
+        } finally {
+          sendButton.disabled = completed;
+          questionField.disabled = completed;
+          if (!completed) questionField.focus();
+        }
+      });
+
+      const clearButton = document.getElementById("clear");
+      if (clearButton) {
+        clearButton.addEventListener("click", () => {
+          window.location.reload();
+        });
+      }
+
+      questionField.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          form.requestSubmit();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
